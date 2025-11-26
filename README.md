@@ -42,5 +42,5 @@ python training/ppo_training.py
 
 ### Run Best Model
 ```bash
-python main.py
+python main.py --algo ppo --run final_exp --episodes 10
 ```
