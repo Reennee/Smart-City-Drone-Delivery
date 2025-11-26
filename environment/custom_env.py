@@ -188,50 +188,49 @@ class CityDroneEnv(gym.Env):
         if not collision:
             self._agent_location = new_location
             
-            # Distance reward
-            prev_dist = np.linalg.norm(self._target_location - prev_location)
-            curr_dist = np.linalg.norm(self._target_location - self._agent_location)
-            reward += (prev_dist - curr_dist) * 1.0 # Shaping reward
+            # Distance reward - PRIORITIZE HORIZONTAL MOVEMENT
+            # Separate horizontal (XY) and vertical (Z) distances
+            prev_xy_dist = np.linalg.norm(self._target_location[:2] - prev_location[:2])
+            curr_xy_dist = np.linalg.norm(self._target_location[:2] - self._agent_location[:2])
             
-            if curr_dist < prev_dist:
-                reward += 0.5
+            # Reward horizontal progress MUCH more
+            reward += (prev_xy_dist - curr_xy_dist) * 5.0  # 5x weight on horizontal
+            
+            # Small reward for vertical alignment (getting to ground level)
+            prev_z_dist = abs(self._target_location[2] - prev_location[2])
+            curr_z_dist = abs(self._target_location[2] - self._agent_location[2])
+            reward += (prev_z_dist - curr_z_dist) * 0.5  # Only 0.5x weight on vertical
+            
+            if curr_xy_dist < prev_xy_dist:
+                reward += 2.0 # Big bonus for horizontal progress
             else:
-                reward -= 0.6
-
-        # Interaction (Action 7)
+                reward -= 1.0 # Penalty for moving away horizontally
+ 
+        # If agent is at target, automatically deliver!
+        if np.array_equal(self._agent_location, self._target_location):
+            reward += 500 # HUGE reward for delivery
+            terminated = True
+            
+        # Interaction (Action 7) - No longer needed for delivery but kept for compatibility
         if action == 7:
-            # Pickup/Delivery logic
-            if np.array_equal(self._agent_location, self._target_location):
-                if not self._has_package:
-                    # Assuming we start with package for simplicity in this version, 
-                    # or we could require pickup first. Let's say we deliver to target.
-                    # Wait, spec said "Pickup/Dropoff". Let's simplify: 
-                    # Start with package -> Deliver to target.
-                    if not self._has_package: # If we treat target as pickup
-                         pass # Logic for pickup if we had separate pickup point
-                    
-                    # For this implementation: Mission is to deliver package to target
-                    reward += 100
-                    terminated = True
-            else:
-                reward -= 1 # Wasted interaction
+            reward -= 1 # Wasted interaction
 
         # Battery consumption
         drain = self.BATTERY_DRAIN_HOVER
         if action < 6: # Moving
-            drain = self.BATTERY_DRAIN_MOVE
-            if action == 4: drain += 0.2 # Ascending costs more
+            drain = self.BATTERY_DRAIN_MOVE * 0.5 # Cheaper to move
+            if action == 4: drain += 0.1 # Ascending costs more
         
         if self._has_package:
             drain += self.BATTERY_DRAIN_CARRY
             
         self._battery -= drain
         if self._battery <= 0:
-            reward -= 100
+            reward -= 50 # Less penalty for dying (encourage risk)
             terminated = True
             
         # Time penalty
-        reward -= 0.1
+        reward -= 0.05 # Lower time penalty
         
         if self._current_step >= self.MAX_STEPS:
             truncated = True

@@ -38,23 +38,41 @@ def main():
         if not os.path.exists(algo_dir):
             continue
             
-        # Find best run (highest average reward)
+        # Find best run for this algo
         best_run = None
         best_reward = -float('inf')
         best_df = None
+
+        # Explicitly check for final_exp for ALL algorithms
+        # Search for any directory containing "final_exp"
+        candidates = [d for d in os.listdir(algo_dir) if "final_exp" in d]
+        if candidates:
+             # Sort to get the most recent or simple one? Just pick the first one.
+             # Ideally we want "dqn_final_exp" or "final_exp"
+             best_run = candidates[0]
+             # If there's an exact match "final_exp", prefer that (for PPO)
+             if "final_exp" in candidates and os.path.isdir(f"{algo_dir}/final_exp"):
+                 best_run = "final_exp"
+                 
+             df = load_monitor_data(f"{algo_dir}/{best_run}")
+             if df is not None:
+                 best_df = df
+                 print(f"For {algo}, forcing use of: {best_run}")
         
-        for run_name in os.listdir(algo_dir):
-            run_path = os.path.join(algo_dir, run_name)
-            if not os.path.isdir(run_path) or run_name == "tensorboard":
-                continue
+        # If not forced or not found, search normally
+        if best_run is None:
+            for run_name in os.listdir(algo_dir):
+                run_path = os.path.join(algo_dir, run_name)
+                if not os.path.isdir(run_path) or run_name == "tensorboard" or run_name.startswith("."):
+                    continue
                 
-            df = load_monitor_data(run_path)
-            if df is not None and len(df) > 0:
-                avg_reward = df['r'].mean()
-                if avg_reward > best_reward:
-                    best_reward = avg_reward
-                    best_run = run_name
-                    best_df = df
+                df = load_monitor_data(run_path)
+                if df is not None and len(df) > 0:
+                    mean_reward = df['r'].mean()
+                    if mean_reward > best_reward:
+                        best_reward = mean_reward
+                        best_run = run_name
+                        best_df = df
         
         if best_df is not None:
             # Calculate cumulative timesteps for x-axis if available, else use index

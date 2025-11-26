@@ -18,10 +18,14 @@ def main():
     parser.add_argument("--algo", type=str, default="dqn", choices=["dqn", "ppo", "a2c", "reinforce"])
     parser.add_argument("--run", type=str, default="dqn_default")
     parser.add_argument("--episodes", type=int, default=5)
+    parser.add_argument("--fps", type=int, default=5, help="Frames per second for rendering")
+    parser.add_argument("--stochastic", action="store_true", help="Use stochastic actions")
     args = parser.parse_args()
     
     env = gym.make("CityDrone-v0", render_mode="human")
+    env.metadata["render_fps"] = args.fps
     
+    # Use final_model (the one saved at the end of training)
     model_path = f"models/{args.algo}/{args.run}/final_model"
     if args.algo == "reinforce":
         model_path += ".pth"
@@ -61,12 +65,14 @@ def main():
             if args.algo == "reinforce":
                 action, _ = model.select_action(obs)
             else:
-                action, _ = model.predict(obs, deterministic=True)
+                action, _ = model.predict(obs, deterministic=not args.stochastic)
                 
             obs, reward, done, truncated, info = env.step(action)
             total_reward += reward
             
         print(f"Episode {ep+1} finished. Reward: {total_reward:.2f}")
+        import time
+        time.sleep(1.0) # Pause between episodes
         
     env.close()
 
