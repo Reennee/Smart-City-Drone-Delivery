@@ -45,7 +45,7 @@ def main():
         
         for run_name in os.listdir(algo_dir):
             run_path = os.path.join(algo_dir, run_name)
-            if not os.path.isdir(run_path):
+            if not os.path.isdir(run_path) or run_name == "tensorboard":
                 continue
                 
             df = load_monitor_data(run_path)

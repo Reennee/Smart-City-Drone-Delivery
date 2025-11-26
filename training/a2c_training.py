@@ -1,4 +1,7 @@
 import gymnasium as gym
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 import environment
 from stable_baselines3 import A2C
 from stable_baselines3.common.callbacks import EvalCallback
